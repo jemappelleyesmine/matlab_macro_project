@@ -97,7 +97,7 @@ disp(log_gdp_table)
 
 %% 6. Apply the HP Filter
 
-lambda = lambda = 100; % Standard smoothing parameter for annual data
+lambda = 100; % Standard smoothing parameter for annual data
 % (as per Ravn & Uhlig, 2002)
 
 % Apply the HP filter to each country
@@ -332,4 +332,5 @@ grid on;
 %France’s low volatility results from strong state intervention and
 % Eurozone policies. The higher correlation (0.4534) with the US and China
 % suggests that France follows global economic trends more than China.
+
 
