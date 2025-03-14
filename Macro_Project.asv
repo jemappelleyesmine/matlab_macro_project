@@ -83,7 +83,7 @@ gdp_table = table(years, gdp_matrix(:,1), gdp_matrix(:,2), gdp_matrix(:,3), ...
 % Display the table properly
 disp(gdp_table)
 
-%% 5. Convert GDP to Logarithms
+%% 5. 
 
 % Convert GDP values to log format
 log_gdp = log(gdp_matrix);
@@ -94,8 +94,6 @@ log_gdp_table = table(years, log_gdp(:,1), log_gdp(:,2), log_gdp(:,3), ...
 
 % Display first 5 rows to check
 disp(log_gdp_table)
-
-%% 6. Apply the HP Filter
 
 lambda = 1600; % Standard smoothing parameter for quarterly data
 
@@ -110,8 +108,6 @@ business_cycle_table = table(years, cycle_CHN, cycle_USA, cycle_FRA, ...
 
 % Display first few rows to verify
 disp(business_cycle_table)
-
-%% 7. Plot the Business Cycle
 
 % Plot the business cycle
 figure;
