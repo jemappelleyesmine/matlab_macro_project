@@ -621,7 +621,4 @@ grid on;
 % Eurozone policies. The higher correlation (0.4534) with the US and China
 % suggests that France follows global economic trends more than China.
 
-!git add GDP_China_NBS.xlsx GDP_France_ECB.xlsx GDP_US_FRED.xlsx
-!git commit -m "Added Quarterly GDP datasets for China, France, and US"
-
 
