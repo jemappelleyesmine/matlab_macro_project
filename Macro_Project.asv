@@ -135,10 +135,9 @@ grid on;
 %The USA and France continue to move together, while China (red) 
 % exhibits a much more volatile cycle.
 
-%China’s fluctuations appear less synchronized with the USA and France.
+China’s fluctuations appear less synchronized with the USA and France.
 
-%The 2020 COVID-19 recession affected all three economies significantly, 
-% but China’s recovery seems more volatile.
+The 2020 COVID-19 recession affected all three economies significantly, but China’s recovery seems more volatile.
 
 %% 7. Compute Business Cycle Statistics
 
@@ -282,20 +281,13 @@ grid on;
 % reinforcing the idea that the USA and France have interdependent 
 % economies.
 
-%Graph 3: Lead-Lag Correlation:
-%The USA and France have the strongest correlation at lag 0, meaning their
-% economies fluctuate together without delay.
-
-%China’s business cycle is weakly correlated with the USA and France, 
-% with its impact appearing more strongly after a short delay 
-% (1-2 quarters).
+%% 9. Notes on our results
 
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%% ANNUAL DATA ANALYSIS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 %% 1. Loading the dataset
 
 % Setting the variable names of the data set
@@ -450,7 +442,9 @@ business_cycle_stats = table(["China"; "USA"; "France"], ...
 
 disp(business_cycle_stats)
 
-%Volatility:
+% Comments on business cycle stats
+
+%Volatility
 % China has the highest volatility (0.0649). This means China's GDP
 % fluctuations are the most pronounced.
 % USA is in the middle (0.0436). The US has moderate business cycle
@@ -460,7 +454,7 @@ disp(business_cycle_stats)
 % China's economy experiences larger boom and bust cycles, while France's
 % economy appears to be more stable.
 
-% Persistence (First-Order Autocorrelation):
+% Persistence (First-Order Autocorrelation)
 %USA has the highest persistence (0.7969). Meaning that its business cycle
 % deviations tend to be more prolonged over time.
 %China (0.7579) and France (0.7341) have lower persistence but still show
@@ -468,7 +462,7 @@ disp(business_cycle_stats)
 %If there is a recession or an expansion, it is likely to last longer in
 % the USA than in China or France.
 
-%Co-movement (Correlation):
+%Co-movement (Correlation)
 %France has the strongest correlation (0.4534) with the other countries.
 % Suggesting France's economy is more synchronized with global economic trends.
 %China (-0.1907) and the USA (-0.0395) show weak or negative correlations.
@@ -530,10 +524,10 @@ grid on;
 
 %% 10. Notes on Historical Events Affecting Business Cycles
 
-%_____________________________________________________________________%
+%_____________________________________________________________________
 % China: High Volatility (0.0649), Moderate Persistence(0.7579), Weak
 % Correlation (-0.1907) with the USA
-%_____________________________________________________________________%
+%_____________________________________________________________________
 
 % 1978–1990: Economic Reforms and Opening Up
 % After Deng Xiaoping’s reforms in 1978, China shifted from a centrally
@@ -561,11 +555,11 @@ grid on;
 % the USA suggests China’s cycles are more influenced by domestic policies
 % than global trends.
 
-%________________________________________________________________________%
+%_________________________________________________________________________
 % USA: Moderate Volatility(0.0436), High Persistence (0.7969 so recessions
 % and expansions last longer), Weak Correlation (-0.0395) with China and
 % France.
-%________________________________________________________________________%
+%_________________________________________________________________________
 
 %1970s: Stagflation and Oil Crises (1973, 1979)
 %The US economy suffered from high inflation and stagnation, leading to 
@@ -592,10 +586,10 @@ grid on;
 % with China and France suggests the US follows its own financial-driven
 % cycle rather than external trade shocks.
 
-%__________________________________________________________________%
+%__________________________________________________________________
 % France: Lowest Volatility(0.0250), Moderate Persistence (0.7341),
 % Stronger Correlation (0.4534) with global business cycles.
-%__________________________________________________________________%
+%__________________________________________________________________
 
 %1970s: Oil Crises and European Recession
 %France suffered from rising oil prices and slow industrial growth. This
@@ -621,7 +615,5 @@ grid on;
 % Eurozone policies. The higher correlation (0.4534) with the US and China
 % suggests that France follows global economic trends more than China.
 
-!git add GDP_China_NBS.xlsx GDP_France_ECB.xlsx GDP_US_FRED.xlsx
-!git commit -m "Added Quarterly GDP datasets for China, France, and US"
 
 
