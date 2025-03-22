@@ -17,4 +17,4 @@ Notes:
 
 - ECB Data: Calendar and seasonally adjusted data, Gross domestic product at market prices, Chain linked volume (rebased).
 
-- NBS Data: Data at constant prices are calaclated according to different base period. Of which, data for 2016-2020 are calculated at 2015 constant prices, and data since Q1-2021 are calculated at 2020 constant prices.
+- NBS Data: Data at constant prices are calculated according to different base period. Of which, data for 2016-2020 are calculated at 2015 constant prices, and data since Q1-2021 are calculated at 2020 constant prices.
