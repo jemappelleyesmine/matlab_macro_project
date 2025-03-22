@@ -1,9 +1,300 @@
-%%%%%%%%%%%%%%%%%%%%%%%%%%
-% MACROECONOMICS PROJECT %
-%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%% MACROECONOMICS PROJECT %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 cd '/Users/yesminehachana/Desktop/Classes/Dauphine/2nd Semester/Macroeconomics MATLAB Project/Repository'
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%% QUARTERLY DATA ANALYSIS %%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% 1. Load Quarterly GDP Datasets
+
+% Load US and France data (full period)
+US_GDP = readtable('GDP_US_FRED.xlsx');
+France_GDP = readtable('GDP_France_ECB.xlsx');
+
+% Load China data (2007 onward)
+China_GDP = readtable('GDP_China_NBS.xlsx');
+
+% Display first few rows to verify
+disp('US GDP Data:'); disp(US_GDP(1:5,:));
+disp('France GDP Data:'); disp(France_GDP(1:5,:));
+disp('China GDP Data:'); disp(China_GDP(1:5,:));
+
+%% 2. Data Cleaning & Alignment
+
+% Rename columns for consistency
+US_GDP.Properties.VariableNames = {'Quarter', 'US_GDP'};
+France_GDP.Properties.VariableNames = {'Quarter', 'France_GDP'};
+China_GDP.Properties.VariableNames = {'Quarter', 'China_GDP'};
+
+% Convert "Quarter" column to datetime format (YYYY-MM-DD)
+US_GDP.Quarter = datetime(US_GDP.Quarter, 'InputFormat', 'yyyy-MM-dd');
+France_GDP.Quarter = datetime(France_GDP.Quarter, 'InputFormat', 'yyyy-MM-dd');
+China_GDP.Quarter = datetime(China_GDP.Quarter, 'InputFormat', 'yyyy-MM-dd');
+
+% Find the starting and ending dates
+start_date_US_France = min(US_GDP.Quarter); % Earliest available date
+start_date_China = datetime(2007,1,1); % China's data starts in 2007
+end_date = max(US_GDP.Quarter); % Latest available date
+
+% Filter US & France (Keep Full Period)
+US_France_GDP = innerjoin(US_GDP, France_GDP, 'Keys', 'Quarter');
+
+% Filter US, France & China (Start from 2007)
+US_France_China_GDP = innerjoin(US_France_GDP(US_France_GDP.Quarter >= start_date_China, :), China_GDP, 'Keys', 'Quarter');
+
+% Display merged datasets
+disp('US-France Full GDP Dataset:');
+disp(US_France_GDP(1:5,:));
+
+disp('US-France-China (2007 Onward) GDP Dataset:');
+disp(US_France_China_GDP(1:5,:));
+
+%% 3. Convert GDP to Logarithms
+
+% Convert US-France (Full Period)
+log_gdp_US_France = log(table2array(US_France_GDP(:,2:3)));
+
+% Convert US-France-China (2007 Onward)
+log_gdp_US_France_China = log(table2array(US_France_China_GDP(:,2:4)));
+
+% Store log-transformed GDP in structured tables
+log_gdp_table_US_France = table(US_France_GDP.Quarter, log_gdp_US_France(:,1), log_gdp_US_France(:,2), ...
+    'VariableNames', {'Quarter', 'Log_US_GDP', 'Log_France_GDP'});
+
+log_gdp_table_US_France_China = table(US_France_China_GDP.Quarter, log_gdp_US_France_China(:,1), log_gdp_US_France_China(:,2), log_gdp_US_France_China(:,3), ...
+    'VariableNames', {'Quarter', 'Log_US_GDP', 'Log_France_GDP', 'Log_China_GDP'});
+
+% Display first few rows to verify
+disp(log_gdp_table_US_France(1:5,:));
+disp(log_gdp_table_US_France_China(1:5,:));
+
+%% 4. Apply HP Filter (λ = 1600 for Quarterly Data)
+
+lambda = 1600; % Standard HP filter value for quarterly data
+
+% Apply the HP filter for US-France (Full Period)
+[cycle_USA, trend_USA] = hpfilter(log_gdp_US_France(:,1), lambda);
+[cycle_FRA, trend_FRA] = hpfilter(log_gdp_US_France(:,2), lambda);
+
+% Apply the HP filter for US-France-China (2007 Onward)
+[cycle_USA_China, trend_USA_China] = hpfilter(log_gdp_US_France_China(:,1), lambda);
+[cycle_FRA_China, trend_FRA_China] = hpfilter(log_gdp_US_France_China(:,2), lambda);
+[cycle_CHN, trend_CHN] = hpfilter(log_gdp_US_France_China(:,3), lambda);
+
+% Store results in tables
+business_cycle_table_US_France = table(US_France_GDP.Quarter, cycle_USA, cycle_FRA, ...
+    'VariableNames', {'Quarter', 'US_Cycle', 'France_Cycle'});
+
+business_cycle_table_US_France_China = table(US_France_China_GDP.Quarter, cycle_USA_China, cycle_FRA_China, cycle_CHN, ...
+    'VariableNames', {'Quarter', 'US_Cycle', 'France_Cycle', 'China_Cycle'});
+
+% Display first few rows
+disp(business_cycle_table_US_France(1:5,:));
+disp(business_cycle_table_US_France_China(1:5,:));
+
+%% 5. Plot Business Cycle - US & France (Full Period)
+
+figure;
+plot(US_France_GDP.Quarter, cycle_USA, 'b', 'LineWidth', 1.5); hold on;
+plot(US_France_GDP.Quarter, cycle_FRA, 'g', 'LineWidth', 1.5);
+xlabel('Year');
+ylabel('Business Cycle Component');
+title('Quarterly GDP Business Cycle - US & France');
+legend('USA', 'France');
+grid on;
+
+%Graph 1: Business Cycle of USA & France (1950 - Present):
+
+%The USA (blue) and France (green) cycles show a clear co-movement, 
+% especially in the post-1980 period.
+
+%Some divergence occurs in earlier decades, but their fluctuations 
+% remain broadly synchronized.
+
+%The 2008 financial crisis and COVID-19 recession are visible as sharp 
+% downturns in both countries.
+
+%% 6. Plot Business Cycle - US, France & China (2007 Onward)
+
+figure;
+plot(US_France_China_GDP.Quarter, cycle_USA_China, 'b', 'LineWidth', 1.5); hold on;
+plot(US_France_China_GDP.Quarter, cycle_FRA_China, 'g', 'LineWidth', 1.5);
+plot(US_France_China_GDP.Quarter, cycle_CHN, 'r', 'LineWidth', 1.5);
+xlabel('Year');
+ylabel('Business Cycle Component');
+title('Quarterly GDP Business Cycle - US, France & China (2007 Onward)');
+legend('USA', 'France', 'China');
+grid on;
+
+%Graph 2: Business Cycle of USA, France, and China (2007 - Present):
+%The USA and France continue to move together, while China (red) 
+% exhibits a much more volatile cycle.
+
+%China’s fluctuations appear less synchronized with the USA and France.
+
+%The 2020 COVID-19 recession affected all three economies significantly, 
+% but China’s recovery seems more volatile.
+
+%% 7. Compute Business Cycle Statistics
+
+% Extract business cycle components
+us_cycle = business_cycle_table_US_France.US_Cycle;
+france_cycle = business_cycle_table_US_France.France_Cycle;
+
+% Extract China's cycle separately (2007 onward)
+china_cycle = business_cycle_table_US_France_China.China_Cycle;
+
+% Compute Volatility (Standard Deviation)
+volatility_us = std(us_cycle);
+volatility_france = std(france_cycle);
+volatility_china = std(china_cycle);
+
+% Compute Persistence (First-Order Autocorrelation)
+persistence_us = autocorr(us_cycle, 1);
+persistence_france = autocorr(france_cycle, 1);
+persistence_china = autocorr(china_cycle, 1);
+
+% Compute Co-movement (Correlation between Countries)
+corr_us_france = corrcoef(us_cycle, france_cycle);
+
+% China only has data from 2007 onward, match the period
+corr_china_us = corrcoef(china_cycle, business_cycle_table_US_France_China.US_Cycle);
+corr_china_france = corrcoef(china_cycle, business_cycle_table_US_France_China.France_Cycle);
+
+% Store results in a table
+disp('Business Cycle Statistics:')
+business_cycle_stats = table(["USA"; "France"; "China"], ...
+    [volatility_us; volatility_france; volatility_china], ...
+    [persistence_us(2); persistence_france(2); persistence_china(2)], ...
+    [corr_us_france(1,2); corr_china_france(1,2); corr_china_us(1,2)], ...
+    'VariableNames', {'Country', 'Volatility', 'Persistence', 'Correlation'});
+
+disp(business_cycle_stats);
+
+%Volatility (Standard Deviation):
+
+%China (0.07759) has the highest volatility, indicating that its GDP 
+% fluctuations are more extreme compared to the USA and France.
+
+%The USA (0.01735) and France (0.01590) have relatively lower volatility,
+% suggesting that their business cycles exhibit more stability.
+
+%The higher volatility in China could be explained by its rapid economic 
+% transitions, structural shifts, and exposure to external shocks.
+
+%Persistence (First-Order Autocorrelation):
+
+%The USA (0.78014) has the most persistent business cycle fluctuations. 
+% This means that its economic expansions and contractions tend to last 
+% longer.
+
+%France (0.57052) shows moderate persistence, suggesting that its business 
+% cycle deviations do not last as long as the USA’s.
+
+%China (0.08627) has very low persistence, meaning that its economic 
+% fluctuations are short-lived and less predictable.
+
+%Correlation (Co-Movement):
+
+%USA and France (0.46985) have the strongest correlation, implying that 
+% their economies move together relatively closely. This is likely due to 
+% their high level of trade and financial integration.
+
+%France and China (0.25548) have a weaker correlation, suggesting that 
+% France’s business cycle is somewhat aligned with China’s but not 
+% strongly.
+
+%China and the USA (0.17751) show the weakest correlation, indicating that 
+% their business cycles are largely independent, likely due to different 
+% economic structures, trade policies, and domestic demand dynamics.
+
+%% 8. Performing Lagged and Lead Correlations
+
+max_lag = 12; % Define max lag to check (quarters)
+
+% Initialize matrices to store results
+corr_lags = zeros(2*max_lag+1, 3); % Rows for -12 to +12 lags
+
+for lag = -max_lag:max_lag
+    if lag < 0
+        % Leading: Shift second country forward
+        corr_lags(lag+max_lag+1, 1) = corr(china_cycle(1:end+lag), business_cycle_table_US_France_China.US_Cycle(-lag+1:end)); 
+        corr_lags(lag+max_lag+1, 2) = corr(china_cycle(1:end+lag), business_cycle_table_US_France_China.France_Cycle(-lag+1:end)); 
+        corr_lags(lag+max_lag+1, 3) = corr(us_cycle(1:end+lag), france_cycle(-lag+1:end)); 
+    elseif lag > 0
+        % Lagging: Shift first country forward
+        corr_lags(lag+max_lag+1, 1) = corr(china_cycle(lag+1:end), business_cycle_table_US_France_China.US_Cycle(1:end-lag)); 
+        corr_lags(lag+max_lag+1, 2) = corr(china_cycle(lag+1:end), business_cycle_table_US_France_China.France_Cycle(1:end-lag)); 
+        corr_lags(lag+max_lag+1, 3) = corr(us_cycle(lag+1:end), france_cycle(1:end-lag)); 
+    else
+        % No shift (original correlation)
+        corr_lags(lag+max_lag+1, 1) = corr(china_cycle, business_cycle_table_US_France_China.US_Cycle);
+        corr_lags(lag+max_lag+1, 2) = corr(china_cycle, business_cycle_table_US_France_China.France_Cycle);
+        corr_lags(lag+max_lag+1, 3) = corr(us_cycle, france_cycle);
+    end
+end
+
+% Store results in a table
+lag_labels = (-max_lag:max_lag)';
+lead_lag_table = table(lag_labels, corr_lags(:,1), corr_lags(:,2), corr_lags(:,3), ...
+    'VariableNames', {'Lag', 'China_US_Corr', 'China_France_Corr', 'US_France_Corr'});
+
+disp('Lead-Lag Correlations:')
+disp(lead_lag_table)
+
+% Plot Lead-Lag Correlations
+figure;
+plot(lag_labels, corr_lags(:,1), '-or', 'LineWidth', 1.5); hold on;
+plot(lag_labels, corr_lags(:,2), '-ob', 'LineWidth', 1.5);
+plot(lag_labels, corr_lags(:,3), '-og', 'LineWidth', 1.5);
+xlabel('Lag (quarters)');
+ylabel('Correlation');
+title('Lead-Lag Correlation of Business Cycles');
+legend('China-USA', 'China-France', 'USA-France');
+grid on;
+
+%China and the USA
+%The correlation is generally weak across different lags.
+
+%The highest correlation (0.35881) appears at one quarter lag, suggesting 
+% that China’s business cycle leads the US cycle slightly in some cases.
+
+%Negative correlations at longer leads and lags suggest that their economic
+% cycles do not move in sync over time.
+
+%China and France
+%The correlation is strongest at one quarter lag (0.39845), meaning China’s
+% cycle slightly precedes France’s.
+
+%The correlation is weak at other time points, showing that their business 
+% cycles are not strongly aligned in general.
+
+%USA and France
+%The highest correlation (0.46985) is at lag 0, meaning their cycles move 
+% in sync at the same time.
+
+%The correlation remains positive for a few quarters before weakening, 
+% reinforcing the idea that the USA and France have interdependent 
+% economies.
+
+%Graph 3: Lead-Lag Correlation:
+%The USA and France have the strongest correlation at lag 0, meaning their
+% economies fluctuate together without delay.
+
+%China’s business cycle is weakly correlated with the USA and France, 
+% with its impact appearing more strongly after a short delay 
+% (1-2 quarters).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%% ANNUAL DATA ANALYSIS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% 1. Loading the dataset
 
@@ -159,9 +450,7 @@ business_cycle_stats = table(["China"; "USA"; "France"], ...
 
 disp(business_cycle_stats)
 
-% Comments on business cycle stats
-
-%Volatility
+%Volatility:
 % China has the highest volatility (0.0649). This means China's GDP
 % fluctuations are the most pronounced.
 % USA is in the middle (0.0436). The US has moderate business cycle
@@ -171,7 +460,7 @@ disp(business_cycle_stats)
 % China's economy experiences larger boom and bust cycles, while France's
 % economy appears to be more stable.
 
-% Persistence (First-Order Autocorrelation)
+% Persistence (First-Order Autocorrelation):
 %USA has the highest persistence (0.7969). Meaning that its business cycle
 % deviations tend to be more prolonged over time.
 %China (0.7579) and France (0.7341) have lower persistence but still show
@@ -179,7 +468,7 @@ disp(business_cycle_stats)
 %If there is a recession or an expansion, it is likely to last longer in
 % the USA than in China or France.
 
-%Co-movement (Correlation)
+%Co-movement (Correlation):
 %France has the strongest correlation (0.4534) with the other countries.
 % Suggesting France's economy is more synchronized with global economic trends.
 %China (-0.1907) and the USA (-0.0395) show weak or negative correlations.
@@ -239,13 +528,12 @@ title('Lead-Lag Correlation of Business Cycles');
 legend('China-USA', 'China-France', 'USA-France');
 grid on;
 
-
 %% 10. Notes on Historical Events Affecting Business Cycles
 
-%_____________________________________________________________________
+%_____________________________________________________________________%
 % China: High Volatility (0.0649), Moderate Persistence(0.7579), Weak
 % Correlation (-0.1907) with the USA
-%_____________________________________________________________________
+%_____________________________________________________________________%
 
 % 1978–1990: Economic Reforms and Opening Up
 % After Deng Xiaoping’s reforms in 1978, China shifted from a centrally
@@ -273,11 +561,11 @@ grid on;
 % the USA suggests China’s cycles are more influenced by domestic policies
 % than global trends.
 
-%_________________________________________________________________________
+%________________________________________________________________________%
 % USA: Moderate Volatility(0.0436), High Persistence (0.7969 so recessions
 % and expansions last longer), Weak Correlation (-0.0395) with China and
 % France.
-%_________________________________________________________________________
+%________________________________________________________________________%
 
 %1970s: Stagflation and Oil Crises (1973, 1979)
 %The US economy suffered from high inflation and stagnation, leading to 
@@ -304,10 +592,10 @@ grid on;
 % with China and France suggests the US follows its own financial-driven
 % cycle rather than external trade shocks.
 
-%__________________________________________________________________
+%__________________________________________________________________%
 % France: Lowest Volatility(0.0250), Moderate Persistence (0.7341),
 % Stronger Correlation (0.4534) with global business cycles.
-%__________________________________________________________________
+%__________________________________________________________________%
 
 %1970s: Oil Crises and European Recession
 %France suffered from rising oil prices and slow industrial growth. This
@@ -332,5 +620,6 @@ grid on;
 %France’s low volatility results from strong state intervention and
 % Eurozone policies. The higher correlation (0.4534) with the US and China
 % suggests that France follows global economic trends more than China.
+
 
 
