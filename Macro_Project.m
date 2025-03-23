@@ -292,7 +292,9 @@ grid on;
 % with its impact appearing more strongly after a short delay 
 % (1-2 quarters).
 
-%%%%%%%%%%%%%%%%%%%%%%% REMOVING SEASONALITY %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%% DESEASONALIZED QUARTERLY DATA ANALYSIS %%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %We used the moving average method to remove seasonal fluctuations 
 % from the log-GDP data. Specifically, we applied a centered moving 
@@ -309,7 +311,7 @@ grid on;
 %We subtracted this smoothed seasonal component from the original data 
 % to obtain the deseasonalized GDP.
 
-%% 9. Remove Seasonality using Moving Average Method
+%% 1. Remove Seasonality using Moving Average Method
 
 % Define moving average window (4 quarters for seasonal adjustment)
 window = 4;
@@ -338,7 +340,7 @@ log_gdp_adj_US_China = log_gdp_US_France_China(1:length(mov_avg_US_China),1) - s
 log_gdp_adj_France_China = log_gdp_US_France_China(1:length(mov_avg_France_China),2) - seasonal_France_China;
 log_gdp_adj_China = log_gdp_US_France_China(1:length(mov_avg_China),3) - seasonal_China;
 
-%% 10. Apply HP Filter to Seasonally Adjusted Data
+%% 2. Apply HP Filter to Seasonally Adjusted Data
 
 % Apply the HP filter for US-France (Full Period)
 [cycle_USA_adj, trend_USA_adj] = hpfilter(log_gdp_adj_US, lambda);
@@ -358,7 +360,7 @@ business_cycle_table_US_France_China_adj = table(US_France_China_GDP.Quarter(1:l
     cycle_USA_China_adj, cycle_FRA_China_adj, cycle_CHN_adj, ...
     'VariableNames', {'Quarter', 'US_Cycle', 'France_Cycle', 'China_Cycle'});
 
-%% 11. Compute Business Cycle Statistics for Deseasonalized Data
+%% 3. Compute Business Cycle Statistics for Deseasonalized Data
 
 % Extract deseasonalized business cycle components
 us_cycle_adj = cycle_USA_adj;
@@ -423,7 +425,6 @@ title('Business Cycle - US, France & China (After Deseasonalization)');
 legend('USA', 'France', 'China');
 grid on;
 
-
 %Volatility Reduction:
 
 %All three countries (USA, France, China) show lower volatility in 
@@ -451,7 +452,7 @@ grid on;
 % co-movement between economies. Once removed, the true synchronization 
 % of business cycles is clearer.
 
-%% 12. Performing Lagged and Lead Correlations for Deseasonalized Data
+%% 4. Performing Lagged and Lead Correlations for Deseasonalized Data
 
 max_lag = 12; % Define max lag to check (quarters)
 
@@ -508,6 +509,297 @@ grid on;
 %The peak of the correlations also appears stronger, reinforcing that 
 % deseasonalized data gives a better representation of the actual 
 % business cycle comovements.
+
+%% 5. Try the Bry-Boschan (BBQ) Method
+
+% The Bry-Boschan (BBQ) algorithm is a method used to identify turning 
+% points (peaks and troughs) in business cycle data. The main goal of the 
+% method is to detect economic expansions and recessions by looking at how 
+% GDP fluctuates over time.
+
+% The method works by:
+% Identifying local maxima as peaks (turning points marking the transition 
+% from expansion to recession).
+% Identifying local minima as troughs (turning points marking the 
+% transition from recession to expansion).
+%Ensuring alternation between peaks and troughs (i.e., no two consecutive 
+% peaks or troughs).
+%Filtering out too-short cycles (e.g., noise) by setting a minimum cycle 
+% length (in our case, 8 quarters).
+
+function [peaks, troughs, turning_points] = detect_turning_points(cycle, min_cycle_length)
+    peaks = [];
+    troughs = [];
+    
+% function : Declares that this is a function.
+% [peaks, troughs, turning_points] Specifies the outputs of the function
+% peaks: A list of indices where peaks (economic high points) occur.
+% troughs: A list of indices where troughs (economic low points) occur.
+% turning_points: A table that stores both peaks and troughs in a 
+% structured format.
+%(cycle, min_cycle_length)Specifies the inputs of the function
+% cycle: A vector containing the business cycle component of GDP 
+% (deseasonalized, detrended data).
+% min_cycle_length: A threshold (e.g., 8 quarters) to prevent detecting 
+% very short fluctuations as full cycles.
+
+%The empty arrays will store the indices of detected peaks and troughs.
+
+    % Identify initial peaks and troughs
+    for i = 2:length(cycle)-1
+        if cycle(i) > cycle(i-1) && cycle(i) > cycle(i+1) % Peak condition
+            if isempty(peaks) || (i - peaks(end) >= min_cycle_length)
+                peaks = [peaks; i];
+            end
+        elseif cycle(i) < cycle(i-1) && cycle(i) < cycle(i+1) % Trough condition
+            if isempty(troughs) || (i - troughs(end) >= min_cycle_length)
+                troughs = [troughs; i];
+            end
+        end
+    end
+
+%Loops through the business cycle component (GDP cycle). If a data point 
+% is higher than its neighbors, it's marked as a peak. If a data point is 
+% lower than its neighbors, it's marked as a trough. It ensures that peaks 
+% and troughs are separated by at least 8 quarters (so we don’t detect 
+% small fluctuations as full cycles).
+
+    % Ensure peaks and troughs alternate properly
+    valid_peaks = [];
+    valid_troughs = [];
+
+    % Step 1: Ensure alternation of peaks & troughs
+    while ~isempty(peaks) && ~isempty(troughs)
+        if troughs(1) < peaks(1)
+            valid_troughs = [valid_troughs; troughs(1)];
+            troughs(1) = []; % Remove stored trough
+            if ~isempty(peaks)  % Ensure there is a peak to pair with it
+                valid_peaks = [valid_peaks; peaks(1)];
+                peaks(1) = []; % Remove stored peak
+            end
+        elseif peaks(1) < troughs(1)
+            valid_peaks = [valid_peaks; peaks(1)];
+            peaks(1) = []; % Remove stored peak
+            if ~isempty(troughs)  % Ensure there is a trough to pair with it
+                valid_troughs = [valid_troughs; troughs(1)];
+                troughs(1) = []; % Remove stored trough
+            end
+        else
+            peaks(1) = []; % If neither condition applies, remove extra peak
+        end
+    end
+
+%Ensures peaks and troughs alternate properly. If we detect two consecutive
+% peaks or two consecutive troughs, it removes the extra one. It maintains 
+% the correct order of economic phases: expansion peak recession 
+% trough expansion peak.
+
+    % Fix: Only Apply Filtering If There Are Multiple Peaks/Troughs
+    if length(valid_peaks) > 1
+        filtered_peaks = valid_peaks([true; diff(valid_peaks) >= min_cycle_length]);
+    else
+        filtered_peaks = valid_peaks; % Keep all peaks if filtering is not possible
+    end
+    
+    if length(valid_troughs) > 1
+        filtered_troughs = valid_troughs([true; diff(valid_troughs) >= min_cycle_length]);
+    else
+        filtered_troughs = valid_troughs; % Keep all troughs if filtering is not possible
+    end
+
+% Removes peaks and troughs that are too close together (i.e., small 
+% fluctuations that don’t represent real business cycles). Uses a minimum 
+% cycle length of 8 quarters to filter out noise.
+
+    % Assign final alternating peaks & troughs
+    peaks = filtered_peaks;
+    troughs = filtered_troughs;
+
+    % Fix: Ignore Last Peak If No Corresponding Trough
+    if ~isempty(peaks) && ~isempty(troughs) && peaks(end) > troughs(end)
+        peaks(end) = []; % Remove last peak
+    end
+
+% If we detect a peak at the end of the dataset, but no following trough, 
+% we remove the last peak. This ensures that we don’t artificially create 
+% an incomplete business cycle.
+
+    % Combine peaks and troughs into a single labeled table
+    peak_table = table(peaks, repmat("Peak", length(peaks), 1), 'VariableNames', {'Index', 'Type'});
+    trough_table = table(troughs, repmat("Trough", length(troughs), 1), 'VariableNames', {'Index', 'Type'});
+
+    % Merge and sort by time
+    turning_points = [peak_table; trough_table];
+    turning_points = sortrows(turning_points, 'Index');
+end
+
+% Define minimum cycle length (8 quarters for a full cycle)
+min_cycle_length = 8;
+
+% Apply corrected peak-trough detection
+[peaks_US, troughs_US, turning_points_US] = detect_turning_points(cycle_USA_adj, min_cycle_length);
+[peaks_FRA, troughs_FRA, turning_points_FRA] = detect_turning_points(cycle_FRA_adj, min_cycle_length);
+[peaks_CHN, troughs_CHN, turning_points_CHN] = detect_turning_points(cycle_CHN_adj, min_cycle_length);
+
+% Display the Corrected Peaks and Troughs
+disp('Peaks & Troughs:');
+disp('US Peaks:'); disp(peaks_US);
+disp('US Troughs:'); disp(troughs_US);
+disp('France Peaks:'); disp(peaks_FRA);
+disp('France Troughs:'); disp(troughs_FRA);
+disp('China Peaks:'); disp(peaks_CHN);
+disp('China Troughs:'); disp(troughs_CHN);
+
+%% 6. Compute Business Cycle Statistics from BBQ Method
+
+function [expansion_duration, recession_duration, mean_exp_growth, mean_rec_growth] = compute_durations(peaks, troughs, cycle)
+    % Ensure at least one peak and one trough exist
+    if isempty(peaks) || isempty(troughs)
+        expansion_duration = NaN;
+        recession_duration = NaN;
+        mean_exp_growth = NaN;
+        mean_rec_growth = NaN;
+        return;
+    end
+
+% The function compute_durations takes three inputs:
+% peaks: The list of peak indices (economic highs).
+% troughs: The list of trough indices (economic lows).
+% cycle: The business cycle fluctuations (filtered GDP series).
+% The function returns:
+% expansion_duration: The number of periods (quarters) between each peak 
+% and the next trough (length of economic expansions).
+% recession_duration: The number of periods between each trough and the 
+% next peak (length of economic recessions).
+% mean_exp_growth: The average GDP growth during expansion phases.
+% mean_rec_growth: The average GDP decline during recessions.
+
+% The first check ensures that we have at least one peak and one trough 
+% in the detected turning points.
+%If not, the function returns NaN values (meaning we don’t have enough 
+% data to compute cycle durations).
+
+    % Ensure alternation: First peak should be followed by a trough
+    if peaks(1) < troughs(1)
+        expansion_duration = diff(peaks); % Expansion duration = time between peaks
+        recession_duration = diff(troughs); % Recession duration = time between troughs
+    else
+        recession_duration = diff(troughs);
+        expansion_duration = diff(peaks);
+    end
+
+% If the first turning point is a peak, we compute:
+% Expansion durations from peak to peak.
+% Recession durations from trough to trough.
+% If the first turning point is a trough, the assignments are reversed.
+
+    % Compute mean expansion and recession growth rates
+    mean_exp_growth = mean(cycle(peaks));
+    mean_rec_growth = mean(cycle(troughs));
+end
+
+% mean_exp_growth: The average GDP cycle value at peaks (expansion).
+% mean_rec_growth: The average GDP cycle value at troughs (recession).
+
+% Compute statistics for each country
+[duration_expansion_US, duration_recession_US, mean_expansion_US, mean_recession_US] = ...
+    compute_durations(peaks_US, troughs_US, cycle_USA_adj);
+
+[duration_expansion_FRA, duration_recession_FRA, mean_expansion_FRA, mean_recession_FRA] = ...
+    compute_durations(peaks_FRA, troughs_FRA, cycle_FRA_adj);
+
+[duration_expansion_CHN, duration_recession_CHN, mean_expansion_CHN, mean_recession_CHN] = ...
+    compute_durations(peaks_CHN, troughs_CHN, cycle_CHN_adj);
+
+% Now that we have the compute_durations function, we apply it to 
+% the USA, France, and China.
+% Each call to compute_durations gives us:
+% How long expansions and recessions last.
+% How strong expansions and recessions are.
+
+% Compute average durations
+duration_expansion_US_mean = mean(duration_expansion_US);
+duration_recession_US_mean = mean(duration_recession_US);
+
+duration_expansion_FRA_mean = mean(duration_expansion_FRA);
+duration_recession_FRA_mean = mean(duration_recession_FRA);
+
+duration_expansion_CHN_mean = mean(duration_expansion_CHN);
+duration_recession_CHN_mean = mean(duration_recession_CHN);
+
+% We compute the mean duration of expansions and recessions for each
+% country
+
+% Store business cycle statistics in a table
+business_cycle_durations = table(["USA"; "France"; "China"], ...
+    [duration_expansion_US_mean; duration_expansion_FRA_mean; duration_expansion_CHN_mean], ...
+    [duration_recession_US_mean; duration_recession_FRA_mean; duration_recession_CHN_mean], ...
+    [mean_expansion_US; mean_expansion_FRA; mean_expansion_CHN], ...
+    [mean_recession_US; mean_recession_FRA; mean_recession_CHN], ...
+    'VariableNames', {'Country', 'Avg_Expansion_Duration', 'Avg_Recession_Duration', ...
+                      'Mean_Expansion_Growth', 'Mean_Recession_Growth'});
+
+% Display results
+disp('Business Cycle Durations:');
+disp(business_cycle_durations);
+
+% This table summarizes:
+%The average number of quarters in expansions and recessions.
+%How much GDP grows or contracts during these phases.
+
+%% 7. Plot Business Cycles for France & USA (Full Period)
+
+figure;
+hold on;
+
+% Adjust x-axis to match available cycle lengths
+plot(US_France_GDP.Quarter(end-length(cycle_USA_adj)+1:end), cycle_USA_adj, 'b', 'LineWidth', 1.5); % USA
+plot(US_France_GDP.Quarter(end-length(cycle_FRA_adj)+1:end), cycle_FRA_adj, 'g', 'LineWidth', 1.5); % France
+
+% Mark Turning Points (Peaks & Troughs)
+scatter(US_France_GDP.Quarter(peaks_US), cycle_USA_adj(peaks_US), 50, 'bo', 'filled'); % USA Peaks
+scatter(US_France_GDP.Quarter(troughs_US), cycle_USA_adj(troughs_US), 50, 'bs', 'filled'); % USA Troughs
+
+scatter(US_France_GDP.Quarter(peaks_FRA), cycle_FRA_adj(peaks_FRA), 50, 'go', 'filled'); % France Peaks
+scatter(US_France_GDP.Quarter(troughs_FRA), cycle_FRA_adj(troughs_FRA), 50, 'gs', 'filled'); % France Troughs
+
+% Formatting
+xlabel('Year');
+ylabel('Business Cycle Component');
+title('Business Cycles - USA & France (Full Period)');
+legend('USA Cycle', 'France Cycle', ...
+       'USA Peaks', 'USA Troughs', 'France Peaks', 'France Troughs');
+grid on;
+hold off;
+
+%% 8. Plot Business Cycles for France, USA, and China (Full Period)
+
+figure;
+hold on;
+
+% Adjust x-axis to match available cycle lengths
+plot(US_France_GDP.Quarter(end-length(cycle_USA_adj)+1:end), cycle_USA_adj, 'b', 'LineWidth', 1.5); % USA
+plot(US_France_GDP.Quarter(end-length(cycle_FRA_adj)+1:end), cycle_FRA_adj, 'g', 'LineWidth', 1.5); % France
+plot(US_France_China_GDP.Quarter(end-length(cycle_CHN_adj)+1:end), cycle_CHN_adj, 'r', 'LineWidth', 1.5); % China
+
+% Mark Turning Points (Peaks & Troughs)
+scatter(US_France_GDP.Quarter(peaks_US), cycle_USA_adj(peaks_US), 50, 'bo', 'filled'); % USA Peaks
+scatter(US_France_GDP.Quarter(troughs_US), cycle_USA_adj(troughs_US), 50, 'bs', 'filled'); % USA Troughs
+
+scatter(US_France_GDP.Quarter(peaks_FRA), cycle_FRA_adj(peaks_FRA), 50, 'go', 'filled'); % France Peaks
+scatter(US_France_GDP.Quarter(troughs_FRA), cycle_FRA_adj(troughs_FRA), 50, 'gs', 'filled'); % France Troughs
+
+scatter(US_France_China_GDP.Quarter(peaks_CHN), cycle_CHN_adj(peaks_CHN), 50, 'ro', 'filled'); % China Peaks
+scatter(US_France_China_GDP.Quarter(troughs_CHN), cycle_CHN_adj(troughs_CHN), 50, 'rs', 'filled'); % China Troughs
+
+% Formatting
+xlabel('Year');
+ylabel('Business Cycle Component');
+title('Business Cycles - USA, France & China (Full Period)');
+legend('USA Cycle', 'France Cycle', 'China Cycle', ...
+       'USA Peaks', 'USA Troughs', 'France Peaks', 'France Troughs', 'China Peaks', 'China Troughs');
+grid on;
+hold off;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%% ANNUAL DATA ANALYSIS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
