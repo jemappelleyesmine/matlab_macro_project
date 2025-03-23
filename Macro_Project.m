@@ -290,7 +290,188 @@ grid on;
 % with its impact appearing more strongly after a short delay 
 % (1-2 quarters).
 
+%%%%%%%%%%%%%%%%%%%%%%% REMOVING SEASONALITY %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%We used the moving average method to remove seasonal fluctuations 
+% from the log-GDP data. Specifically, we applied a centered moving 
+% average over a 4-quarter window to capture and smooth out seasonal 
+% patterns. Moving averages are easy to implement which is why we tried
+% this method.
+
+%The moving average computes the average of adjacent data points over 
+% a defined window (in our case, 4 quarters).
+
+%This helps smooth out short-term seasonal variations while retaining 
+% long-term trends and cycles.
+
+%We subtracted this smoothed seasonal component from the original data 
+% to obtain the deseasonalized GDP.
+
+%% 9. Remove Seasonality using Moving Average Method
+
+% Define moving average window (4 quarters for seasonal adjustment)
+window = 4;
+
+% Compute moving average (centered)
+mov_avg_US = movmean(log_gdp_US_France(:,1), window, 'Endpoints', 'discard');
+mov_avg_France = movmean(log_gdp_US_France(:,2), window, 'Endpoints', 'discard');
+
+mov_avg_US_China = movmean(log_gdp_US_France_China(:,1), window, 'Endpoints', 'discard');
+mov_avg_France_China = movmean(log_gdp_US_France_China(:,2), window, 'Endpoints', 'discard');
+mov_avg_China = movmean(log_gdp_US_France_China(:,3), window, 'Endpoints', 'discard');
+
+% Compute seasonal component
+seasonal_US = log_gdp_US_France(1:length(mov_avg_US),1) - mov_avg_US;
+seasonal_France = log_gdp_US_France(1:length(mov_avg_France),2) - mov_avg_France;
+
+seasonal_US_China = log_gdp_US_France_China(1:length(mov_avg_US_China),1) - mov_avg_US_China;
+seasonal_France_China = log_gdp_US_France_China(1:length(mov_avg_France_China),2) - mov_avg_France_China;
+seasonal_China = log_gdp_US_France_China(1:length(mov_avg_China),3) - mov_avg_China;
+
+% Compute seasonally adjusted log GDP
+log_gdp_adj_US = log_gdp_US_France(1:length(mov_avg_US),1) - seasonal_US;
+log_gdp_adj_France = log_gdp_US_France(1:length(mov_avg_France),2) - seasonal_France;
+
+log_gdp_adj_US_China = log_gdp_US_France_China(1:length(mov_avg_US_China),1) - seasonal_US_China;
+log_gdp_adj_France_China = log_gdp_US_France_China(1:length(mov_avg_France_China),2) - seasonal_France_China;
+log_gdp_adj_China = log_gdp_US_France_China(1:length(mov_avg_China),3) - seasonal_China;
+
+%% 10. Apply HP Filter to Seasonally Adjusted Data
+
+% Apply the HP filter for US-France (Full Period)
+[cycle_USA_adj, trend_USA_adj] = hpfilter(log_gdp_adj_US, lambda);
+[cycle_FRA_adj, trend_FRA_adj] = hpfilter(log_gdp_adj_France, lambda);
+
+% Apply the HP filter for US-France-China (2007 Onward)
+[cycle_USA_China_adj, trend_USA_China_adj] = hpfilter(log_gdp_adj_US_China, lambda);
+[cycle_FRA_China_adj, trend_FRA_China_adj] = hpfilter(log_gdp_adj_France_China, lambda);
+[cycle_CHN_adj, trend_CHN_adj] = hpfilter(log_gdp_adj_China, lambda);
+
+% Store results in new tables
+business_cycle_table_US_France_adj = table(US_France_GDP.Quarter(1:length(cycle_USA_adj)), ...
+    cycle_USA_adj, cycle_FRA_adj, ...
+    'VariableNames', {'Quarter', 'US_Cycle', 'France_Cycle'});
+
+business_cycle_table_US_France_China_adj = table(US_France_China_GDP.Quarter(1:length(cycle_USA_China_adj)), ...
+    cycle_USA_China_adj, cycle_FRA_China_adj, cycle_CHN_adj, ...
+    'VariableNames', {'Quarter', 'US_Cycle', 'France_Cycle', 'China_Cycle'});
+
+%% 11. Compute Business Cycle Statistics for Deseasonalized Data
+
+% Extract deseasonalized business cycle components
+us_cycle_adj = cycle_USA_adj;
+france_cycle_adj = cycle_FRA_adj;
+china_cycle_adj = cycle_CHN_adj;
+
+% Compute Volatility (Standard Deviation)
+volatility_us_adj = std(us_cycle_adj);
+volatility_france_adj = std(france_cycle_adj);
+volatility_china_adj = std(china_cycle_adj);
+
+% Compute Persistence (First-Order Autocorrelation)
+persistence_us_adj = autocorr(us_cycle_adj, 1);
+persistence_france_adj = autocorr(france_cycle_adj, 1);
+persistence_china_adj = autocorr(china_cycle_adj, 1);
+
+% Compute Co-movement (Correlation between Countries)
+corr_us_france_adj = corrcoef(us_cycle_adj, france_cycle_adj);
+corr_china_us_adj = corrcoef(china_cycle_adj, cycle_USA_China_adj);
+corr_china_france_adj = corrcoef(china_cycle_adj, cycle_FRA_China_adj);
+
+% Store results in a table
+disp('Business Cycle Statistics (Deseasonalized Data):')
+business_cycle_stats_adj = table(["USA"; "France"; "China"], ...
+    [volatility_us_adj; volatility_france_adj; volatility_china_adj], ...
+    [persistence_us_adj(2); persistence_france_adj(2); persistence_china_adj(2)], ...
+    [corr_us_france_adj(1,2); corr_china_france_adj(1,2); corr_china_us_adj(1,2)], ...
+    'VariableNames', {'Country', 'Volatility', 'Persistence', 'Correlation'});
+
+disp(business_cycle_stats_adj);
+
+%Volatility Reduction:
+
+%All three countries (USA, France, China) show lower volatility in 
+% business cycles after deseasonalization. This suggests that the 
+% seasonality in the original data contributed significantly to 
+% fluctuations.
+%China's volatility remains significantly higher than the USA and 
+% France, indicating its economy still experiences greater cyclical 
+% swings.
+
+%Increased Persistence:
+
+%The persistence of business cycles (measured by first-order 
+% autocorrelation) has increased for all three countries. The USA now 
+% has a persistence of 0.912, compared to 0.78 before.
+%This suggests that removing seasonal effects has made business cycles 
+% appear smoother and more prolonged.
+
+%Stronger Business Cycle Correlations:
+
+%USA-France correlation increased from 0.46985 to 0.49312.
+%China-France correlation increased from 0.25548 to 0.43368.
+%China-USA correlation increased from 0.17751 to 0.32303.
+%These results imply that seasonality was masking some underlying 
+% co-movement between economies. Once removed, the true synchronization 
+% of business cycles is clearer.
+
+%% 12. Performing Lagged and Lead Correlations for Deseasonalized Data
+
+max_lag = 12; % Define max lag to check (quarters)
+
+% Initialize matrices to store results
+corr_lags_adj = zeros(2*max_lag+1, 3); % Rows for -12 to +12 lags
+
+for lag = -max_lag:max_lag
+    if lag < 0
+        % Leading: Shift second country forward
+        corr_lags_adj(lag+max_lag+1, 1) = corr(china_cycle_adj(1:end+lag), cycle_USA_China_adj(-lag+1:end)); 
+        corr_lags_adj(lag+max_lag+1, 2) = corr(china_cycle_adj(1:end+lag), cycle_FRA_China_adj(-lag+1:end)); 
+        corr_lags_adj(lag+max_lag+1, 3) = corr(us_cycle_adj(1:end+lag), france_cycle_adj(-lag+1:end)); 
+    elseif lag > 0
+        % Lagging: Shift first country forward
+        corr_lags_adj(lag+max_lag+1, 1) = corr(china_cycle_adj(lag+1:end), cycle_USA_China_adj(1:end-lag)); 
+        corr_lags_adj(lag+max_lag+1, 2) = corr(china_cycle_adj(lag+1:end), cycle_FRA_China_adj(1:end-lag)); 
+        corr_lags_adj(lag+max_lag+1, 3) = corr(us_cycle_adj(lag+1:end), france_cycle_adj(1:end-lag)); 
+    else
+        % No shift (original correlation)
+        corr_lags_adj(lag+max_lag+1, 1) = corr(china_cycle_adj, cycle_USA_China_adj);
+        corr_lags_adj(lag+max_lag+1, 2) = corr(china_cycle_adj, cycle_FRA_China_adj);
+        corr_lags_adj(lag+max_lag+1, 3) = corr(us_cycle_adj, france_cycle_adj);
+    end
+end
+
+% Store results in a table
+lag_labels = (-max_lag:max_lag)';
+lead_lag_table_adj = table(lag_labels, corr_lags_adj(:,1), corr_lags_adj(:,2), corr_lags_adj(:,3), ...
+    'VariableNames', {'Lag', 'China_US_Corr', 'China_France_Corr', 'US_France_Corr'});
+
+disp('Lead-Lag Correlations (Deseasonalized Data):')
+disp(lead_lag_table_adj)
+
+% Plot Lead-Lag Correlations
+figure;
+plot(lag_labels, corr_lags_adj(:,1), '-or', 'LineWidth', 1.5); hold on;
+plot(lag_labels, corr_lags_adj(:,2), '-ob', 'LineWidth', 1.5);
+plot(lag_labels, corr_lags_adj(:,3), '-og', 'LineWidth', 1.5);
+xlabel('Lag (quarters)');
+ylabel('Correlation');
+title('Lead-Lag Correlation of Business Cycles (Deseasonalized Data)');
+legend('China-USA', 'China-France', 'USA-France');
+grid on;
+
+%Lead-Lag Correlation Improvements:
+
+%The new lead-lag correlation graph looks more structured and smooth 
+% compared to the original, which had erratic spikes.
+
+%The curves in the new graph appear more symmetric and display a 
+% clearer cyclical pattern, reflecting more consistent relationships 
+% between countries’ business cycles.
+
+%The peak of the correlations also appears stronger, reinforcing that 
+% deseasonalized data gives a better representation of the actual 
+% business cycle comovements.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%% ANNUAL DATA ANALYSIS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
