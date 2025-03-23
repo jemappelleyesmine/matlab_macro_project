@@ -388,6 +388,16 @@ business_cycle_stats_adj = table(["USA"; "France"; "China"], ...
 
 disp(business_cycle_stats_adj);
 
+% Plot business cycle of France and China for the whole period
+figure;
+plot(business_cycle_table_US_France_adj.Quarter, business_cycle_table_US_France_adj.US_Cycle, 'b', 'LineWidth', 1.5); hold on;
+plot(business_cycle_table_US_France_adj.Quarter, business_cycle_table_US_France_adj.France_Cycle, 'g', 'LineWidth', 1.5);
+xlabel('Year');
+ylabel('Business Cycle Component');
+title('Quarterly GDP Business Cycle - US & France (Deseasonalized)');
+legend('USA', 'France');
+grid on;
+
 % Plot before seasonal adjustment
 figure;
 subplot(2,1,1);
@@ -825,6 +835,4 @@ grid on;
 %France’s low volatility results from strong state intervention and
 % Eurozone policies. The higher correlation (0.4534) with the US and China
 % suggests that France follows global economic trends more than China.
-
-
 
