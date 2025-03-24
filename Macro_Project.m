@@ -527,18 +527,18 @@ grid on;
 %Filtering out too-short cycles (e.g., noise) by setting a minimum cycle 
 % length (in our case, 8 quarters).
 
-function [peaks, troughs, turning_points] = detect_turning_points(cycle, min_cycle_length, min_cycle_amplitude)
+function [peaks, troughs, turning_points] = detect_turning_points(cycle, min_expansion_length, min_recession_length, min_amplitude_expansion, min_amplitude_recession)
     peaks = [];
     troughs = [];
-    
+
     % Identify initial peaks and troughs
     for i = 2:length(cycle)-1
         if cycle(i) > cycle(i-1) && cycle(i) > cycle(i+1) % Peak condition
-            if isempty(peaks) || (i - peaks(end) >= min_cycle_length)
+            if isempty(peaks) || (i - peaks(end) >= min_expansion_length)
                 peaks = [peaks; i];
             end
         elseif cycle(i) < cycle(i-1) && cycle(i) < cycle(i+1) % Trough condition
-            if isempty(troughs) || (i - troughs(end) >= min_cycle_length)
+            if isempty(troughs) || (i - troughs(end) >= min_recession_length)
                 troughs = [troughs; i];
             end
         end
@@ -551,31 +551,40 @@ function [peaks, troughs, turning_points] = detect_turning_points(cycle, min_cyc
     while ~isempty(peaks) && ~isempty(troughs)
         if troughs(1) < peaks(1)
             valid_troughs = [valid_troughs; troughs(1)];
-            troughs(1) = []; 
-            if ~isempty(peaks)  
+            troughs(1) = [];
+            if ~isempty(peaks)
                 valid_peaks = [valid_peaks; peaks(1)];
-                peaks(1) = []; 
+                peaks(1) = [];
             end
         elseif peaks(1) < troughs(1)
             valid_peaks = [valid_peaks; peaks(1)];
-            peaks(1) = []; 
-            if ~isempty(troughs)  
+            peaks(1) = [];
+            if ~isempty(troughs)
                 valid_troughs = [valid_troughs; troughs(1)];
-                troughs(1) = []; 
+                troughs(1) = [];
             end
         else
             peaks(1) = []; 
         end
     end
 
-    % Apply minimum cycle amplitude filtering
+    % Apply separate minimum amplitude filtering for expansions and recessions
     filtered_peaks = [];
     filtered_troughs = [];
 
     for i = 1:min(length(valid_peaks), length(valid_troughs))
-        if abs(cycle(valid_peaks(i)) - cycle(valid_troughs(i))) > min_cycle_amplitude
-            filtered_peaks = [filtered_peaks; valid_peaks(i)];
-            filtered_troughs = [filtered_troughs; valid_troughs(i)];
+        if valid_peaks(i) > valid_troughs(i)
+            % Expansion phase: Ensure peak-trough difference is large enough
+            if abs(cycle(valid_peaks(i)) - cycle(valid_troughs(i))) > min_amplitude_expansion
+                filtered_peaks = [filtered_peaks; valid_peaks(i)];
+                filtered_troughs = [filtered_troughs; valid_troughs(i)];
+            end
+        else
+            % Recession phase: Ensure trough-peak difference is large enough
+            if abs(cycle(valid_troughs(i)) - cycle(valid_peaks(i))) > min_amplitude_recession
+                filtered_peaks = [filtered_peaks; valid_peaks(i)];
+                filtered_troughs = [filtered_troughs; valid_troughs(i)];
+            end
         end
     end
 
@@ -583,7 +592,7 @@ function [peaks, troughs, turning_points] = detect_turning_points(cycle, min_cyc
     peaks = filtered_peaks;
     troughs = filtered_troughs;
 
-    % Ensure the last peak has a corresponding trough
+    % Ensure last peak has a corresponding trough
     if ~isempty(peaks) && ~isempty(troughs) && peaks(end) > troughs(end)
         peaks(end) = [];
     end
@@ -597,21 +606,38 @@ function [peaks, troughs, turning_points] = detect_turning_points(cycle, min_cyc
     turning_points = sortrows(turning_points, 'Index');
 end
 
-min_cycle_length = 8;   % Minimum 8 quarters between peaks/troughs
-min_cycle_amplitude = 0.0075; % Minimum peak-to-trough difference required
+% USA: Longer expansions, shorter recessions
+min_expansion_length_US = 8;  
+min_recession_length_US = 3;   
+min_amplitude_exp_US = 0.0075; 
+min_amplitude_rec_US = 0.0075; 
 
-[peaks_US, troughs_US, turning_points_US] = detect_turning_points(cycle_USA_adj, min_cycle_length, min_cycle_amplitude);
-[peaks_FRA, troughs_FRA, turning_points_FRA] = detect_turning_points(cycle_FRA_adj, min_cycle_length, min_cycle_amplitude);
-[peaks_CHN, troughs_CHN, turning_points_CHN] = detect_turning_points(cycle_CHN_adj, min_cycle_length, min_cycle_amplitude);
+% France: Similar behavior to the US, but with slightly different thresholds
+min_expansion_length_FRA = 8;  
+min_recession_length_FRA = 3;   
+min_amplitude_exp_FRA = 0.0075; 
+min_amplitude_rec_FRA = 0.0075; 
 
-% Display the Corrected Peaks and Troughs
-disp('Peaks & Troughs:');
+% China: Historically longer expansions, shorter recessions
+min_expansion_length_CHN = 8;  
+min_recession_length_CHN = 3;   
+min_amplitude_exp_CHN = 0.0075;  
+min_amplitude_rec_CHN = 0.0075; 
+
+% Apply updated peak-trough detection with separate amplitude filtering
+[peaks_US, troughs_US, turning_points_US] = detect_turning_points(cycle_USA_adj, min_expansion_length_US, min_recession_length_US, min_amplitude_expansion_US, min_amplitude_recession_US);
+[peaks_FRA, troughs_FRA, turning_points_FRA] = detect_turning_points(cycle_FRA_adj, min_expansion_length_FRA, min_recession_length_FRA, min_amplitude_expansion_FRA, min_amplitude_recession_FRA);
+[peaks_CHN, troughs_CHN, turning_points_CHN] = detect_turning_points(cycle_CHN_adj, min_expansion_length_CHN, min_recession_length_CHN, min_amplitude_expansion_CHN, min_amplitude_recession_CHN);
+
+% Display the updated peaks and troughs
+disp('Updated Peaks & Troughs:');
 disp('US Peaks:'); disp(peaks_US);
 disp('US Troughs:'); disp(troughs_US);
 disp('France Peaks:'); disp(peaks_FRA);
 disp('France Troughs:'); disp(troughs_FRA);
 disp('China Peaks:'); disp(peaks_CHN);
 disp('China Troughs:'); disp(troughs_CHN);
+
 
 %% 6. Compute Business Cycle Statistics from BBQ Method
 
