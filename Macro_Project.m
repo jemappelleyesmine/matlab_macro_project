@@ -527,24 +527,10 @@ grid on;
 %Filtering out too-short cycles (e.g., noise) by setting a minimum cycle 
 % length (in our case, 8 quarters).
 
-function [peaks, troughs, turning_points] = detect_turning_points(cycle, min_cycle_length)
+function [peaks, troughs, turning_points] = detect_turning_points(cycle, min_cycle_length, min_cycle_amplitude)
     peaks = [];
     troughs = [];
     
-% function : Declares that this is a function.
-% [peaks, troughs, turning_points] Specifies the outputs of the function
-% peaks: A list of indices where peaks (economic high points) occur.
-% troughs: A list of indices where troughs (economic low points) occur.
-% turning_points: A table that stores both peaks and troughs in a 
-% structured format.
-%(cycle, min_cycle_length)Specifies the inputs of the function
-% cycle: A vector containing the business cycle component of GDP 
-% (deseasonalized, detrended data).
-% min_cycle_length: A threshold (e.g., 8 quarters) to prevent detecting 
-% very short fluctuations as full cycles.
-
-%The empty arrays will store the indices of detected peaks and troughs.
-
     % Identify initial peaks and troughs
     for i = 2:length(cycle)-1
         if cycle(i) > cycle(i-1) && cycle(i) > cycle(i+1) % Peak condition
@@ -558,73 +544,51 @@ function [peaks, troughs, turning_points] = detect_turning_points(cycle, min_cyc
         end
     end
 
-%Loops through the business cycle component (GDP cycle). If a data point 
-% is higher than its neighbors, it's marked as a peak. If a data point is 
-% lower than its neighbors, it's marked as a trough. It ensures that peaks 
-% and troughs are separated by at least 8 quarters (so we don’t detect 
-% small fluctuations as full cycles).
-
     % Ensure peaks and troughs alternate properly
     valid_peaks = [];
     valid_troughs = [];
 
-    % Step 1: Ensure alternation of peaks & troughs
     while ~isempty(peaks) && ~isempty(troughs)
         if troughs(1) < peaks(1)
             valid_troughs = [valid_troughs; troughs(1)];
-            troughs(1) = []; % Remove stored trough
-            if ~isempty(peaks)  % Ensure there is a peak to pair with it
+            troughs(1) = []; 
+            if ~isempty(peaks)  
                 valid_peaks = [valid_peaks; peaks(1)];
-                peaks(1) = []; % Remove stored peak
+                peaks(1) = []; 
             end
         elseif peaks(1) < troughs(1)
             valid_peaks = [valid_peaks; peaks(1)];
-            peaks(1) = []; % Remove stored peak
-            if ~isempty(troughs)  % Ensure there is a trough to pair with it
+            peaks(1) = []; 
+            if ~isempty(troughs)  
                 valid_troughs = [valid_troughs; troughs(1)];
-                troughs(1) = []; % Remove stored trough
+                troughs(1) = []; 
             end
         else
-            peaks(1) = []; % If neither condition applies, remove extra peak
+            peaks(1) = []; 
         end
     end
 
-%Ensures peaks and troughs alternate properly. If we detect two consecutive
-% peaks or two consecutive troughs, it removes the extra one. It maintains 
-% the correct order of economic phases: expansion peak recession 
-% trough expansion peak.
+    % Apply minimum cycle amplitude filtering
+    filtered_peaks = [];
+    filtered_troughs = [];
 
-    % Fix: Only Apply Filtering If There Are Multiple Peaks/Troughs
-    if length(valid_peaks) > 1
-        filtered_peaks = valid_peaks([true; diff(valid_peaks) >= min_cycle_length]);
-    else
-        filtered_peaks = valid_peaks; % Keep all peaks if filtering is not possible
+    for i = 1:min(length(valid_peaks), length(valid_troughs))
+        if abs(cycle(valid_peaks(i)) - cycle(valid_troughs(i))) > min_cycle_amplitude
+            filtered_peaks = [filtered_peaks; valid_peaks(i)];
+            filtered_troughs = [filtered_troughs; valid_troughs(i)];
+        end
     end
-    
-    if length(valid_troughs) > 1
-        filtered_troughs = valid_troughs([true; diff(valid_troughs) >= min_cycle_length]);
-    else
-        filtered_troughs = valid_troughs; % Keep all troughs if filtering is not possible
-    end
-
-% Removes peaks and troughs that are too close together (i.e., small 
-% fluctuations that don’t represent real business cycles). Uses a minimum 
-% cycle length of 8 quarters to filter out noise.
 
     % Assign final alternating peaks & troughs
     peaks = filtered_peaks;
     troughs = filtered_troughs;
 
-    % Fix: Ignore Last Peak If No Corresponding Trough
+    % Ensure the last peak has a corresponding trough
     if ~isempty(peaks) && ~isempty(troughs) && peaks(end) > troughs(end)
-        peaks(end) = []; % Remove last peak
+        peaks(end) = [];
     end
 
-% If we detect a peak at the end of the dataset, but no following trough, 
-% we remove the last peak. This ensures that we don’t artificially create 
-% an incomplete business cycle.
-
-    % Combine peaks and troughs into a single labeled table
+    % Combine peaks and troughs into a labeled table
     peak_table = table(peaks, repmat("Peak", length(peaks), 1), 'VariableNames', {'Index', 'Type'});
     trough_table = table(troughs, repmat("Trough", length(troughs), 1), 'VariableNames', {'Index', 'Type'});
 
@@ -633,13 +597,12 @@ function [peaks, troughs, turning_points] = detect_turning_points(cycle, min_cyc
     turning_points = sortrows(turning_points, 'Index');
 end
 
-% Define minimum cycle length (8 quarters for a full cycle)
-min_cycle_length = 8;
+min_cycle_length = 8;   % Minimum 8 quarters between peaks/troughs
+min_cycle_amplitude = 0.0075; % Minimum peak-to-trough difference required
 
-% Apply corrected peak-trough detection
-[peaks_US, troughs_US, turning_points_US] = detect_turning_points(cycle_USA_adj, min_cycle_length);
-[peaks_FRA, troughs_FRA, turning_points_FRA] = detect_turning_points(cycle_FRA_adj, min_cycle_length);
-[peaks_CHN, troughs_CHN, turning_points_CHN] = detect_turning_points(cycle_CHN_adj, min_cycle_length);
+[peaks_US, troughs_US, turning_points_US] = detect_turning_points(cycle_USA_adj, min_cycle_length, min_cycle_amplitude);
+[peaks_FRA, troughs_FRA, turning_points_FRA] = detect_turning_points(cycle_FRA_adj, min_cycle_length, min_cycle_amplitude);
+[peaks_CHN, troughs_CHN, turning_points_CHN] = detect_turning_points(cycle_CHN_adj, min_cycle_length, min_cycle_amplitude);
 
 % Display the Corrected Peaks and Troughs
 disp('Peaks & Troughs:');
