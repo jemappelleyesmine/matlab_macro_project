@@ -607,27 +607,44 @@ function [peaks, troughs, turning_points] = detect_turning_points(cycle, min_exp
 end
 
 % USA: Longer expansions, shorter recessions
-min_expansion_length_US = 8;  
-min_recession_length_US = 3;   
-min_amplitude_exp_US = 0.0075; 
-min_amplitude_rec_US = 0.0075; 
+min_expansion_length_US = 14;  
+min_recession_length_US = 8;   
+min_amplitude_expansion_US = 0.01; 
+min_amplitude_recession_US = 0.008;
 
 % France: Similar behavior to the US, but with slightly different thresholds
 min_expansion_length_FRA = 8;  
 min_recession_length_FRA = 3;   
-min_amplitude_exp_FRA = 0.0075; 
-min_amplitude_rec_FRA = 0.0075; 
+min_amplitude_expansion_FRA = 0.0075; 
+min_amplitude_recession_FRA = 0.0075; 
 
 % China: Historically longer expansions, shorter recessions
 min_expansion_length_CHN = 8;  
 min_recession_length_CHN = 3;   
-min_amplitude_exp_CHN = 0.0075;  
-min_amplitude_rec_CHN = 0.0075; 
+min_amplitude_expansion_CHN = 0.0075;  
+min_amplitude_recession_CHN = 0.0075; 
 
 % Apply updated peak-trough detection with separate amplitude filtering
-[peaks_US, troughs_US, turning_points_US] = detect_turning_points(cycle_USA_adj, min_expansion_length_US, min_recession_length_US, min_amplitude_expansion_US, min_amplitude_recession_US);
-[peaks_FRA, troughs_FRA, turning_points_FRA] = detect_turning_points(cycle_FRA_adj, min_expansion_length_FRA, min_recession_length_FRA, min_amplitude_expansion_FRA, min_amplitude_recession_FRA);
-[peaks_CHN, troughs_CHN, turning_points_CHN] = detect_turning_points(cycle_CHN_adj, min_expansion_length_CHN, min_recession_length_CHN, min_amplitude_expansion_CHN, min_amplitude_recession_CHN);
+[peaks_US, troughs_US, turning_points_US] = detect_turning_points(...
+    cycle_USA_adj, ...
+    min_expansion_length_US, ...
+    min_recession_length_US, ...
+    min_amplitude_expansion_US, ...
+    min_amplitude_recession_US);
+
+[peaks_FRA, troughs_FRA, turning_points_FRA] = detect_turning_points(...
+    cycle_FRA_adj, ...
+    min_expansion_length_FRA, ...
+    min_recession_length_FRA, ...
+    min_amplitude_expansion_FRA, ...
+    min_amplitude_recession_FRA);
+
+[peaks_CHN, troughs_CHN, turning_points_CHN] = detect_turning_points(...
+    cycle_CHN_adj, ...
+    min_expansion_length_CHN, ...
+    min_recession_length_CHN, ...
+    min_amplitude_expansion_CHN, ...
+    min_amplitude_recession_CHN);
 
 % Display the updated peaks and troughs
 disp('Updated Peaks & Troughs:');
