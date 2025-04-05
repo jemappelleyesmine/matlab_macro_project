@@ -808,6 +808,115 @@ grid on;
 hold off;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%% SECONDARY ANALYSIS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% For the US and France only, sources: FRED and ECB.
+
+%% 1. Cleaning our Interest Rate Aggregate Datasets
+
+% Load and Process Interest Rate Data (US and France)
+
+% Load FEDFUNDS data (US interest rates)
+fedfunds_raw = readtable('FEDFUNDS_FRED.xlsx');
+fedfunds_raw.Properties.VariableNames = {'Date', 'FEDFUNDS'};
+fedfunds_raw.Date = datetime(fedfunds_raw.Date, 'InputFormat', 'yyyy-MM-dd');
+
+% Load ECB Deposit Facility data (France interest rate changes)
+deposit_raw = readtable('Deposit_Facility_ECB.xlsx');
+deposit_raw.Properties.VariableNames = {'Date', 'DepositFacilityChange'};
+deposit_raw.Date = datetime(deposit_raw.Date, 'InputFormat', 'yyyy-MM-dd');
+
+% Convert FEDFUNDS to Quarterly (average over each quarter)
+fedfunds_raw.Quarter = dateshift(fedfunds_raw.Date, 'start', 'quarter');
+fedfunds_quarterly = varfun(@mean, fedfunds_raw, ...
+    'InputVariables', 'FEDFUNDS', ...
+    'GroupingVariables', 'Quarter');
+fedfunds_quarterly.Properties.VariableNames{'mean_FEDFUNDS'} = 'FEDFUNDS_Quarterly';
+
+% Reconstruct France Deposit Facility Level Series and Convert to Quarterly
+
+% Sort and fill missing change data
+deposit_raw = sortrows(deposit_raw, 'Date');
+deposit_raw.DepositFacilityChange(isnan(deposit_raw.DepositFacilityChange)) = 0;
+
+% Reconstruct the level series from cumulative sum of changes
+deposit_raw.DepositFacilityRate = cumsum(deposit_raw.DepositFacilityChange);
+
+% Assign quarter and take the last value each quarter
+deposit_raw.Quarter = dateshift(deposit_raw.Date, 'start', 'quarter');
+[~, ia] = unique(deposit_raw.Quarter); % Get the last entry per quarter
+deposit_quarterly = deposit_raw(ia, {'Quarter', 'DepositFacilityRate'});
+
+% Merge Quarterly Interest Rates (US + France)
+interest_rates_quarterly = outerjoin(fedfunds_quarterly(:, {'Quarter', 'FEDFUNDS_Quarterly'}), ...
+                                     deposit_quarterly, ...
+                                     'Keys', 'Quarter', ...
+                                     'MergeKeys', true);
+
+% Fill missing DepositFacilityRate values by carrying forward last known rate
+interest_rates_quarterly.DepositFacilityRate = ...
+    fillmissing(interest_rates_quarterly.DepositFacilityRate, 'previous');
+
+% Display results
+disp('Quarterly Interest Rates - US and France:');
+disp(interest_rates_quarterly);
+
+%% 2. Log and HP Filtering our Equity Index Datasets
+
+% Load raw datasets
+sp500_raw = readtable('SP500_ECB.xlsx');
+sp500_raw.Properties.VariableNames = {'Date', 'SP500'};
+sp500_raw.Date = datetime(sp500_raw.Date, 'InputFormat', 'yyyy-MM-dd');
+
+eurostoxx_raw = readtable('EuroStoxx50_ECB.xlsx');
+eurostoxx_raw.Properties.VariableNames = {'Date', 'EuroStoxx'};
+eurostoxx_raw.Date = datetime(eurostoxx_raw.Date, 'InputFormat', 'yyyy-MM-dd');
+
+% Convert to quarterly
+sp500_raw.Quarter = dateshift(sp500_raw.Date, 'start', 'quarter');
+eurostoxx_raw.Quarter = dateshift(eurostoxx_raw.Date, 'start', 'quarter');
+
+% Aggregate to quarterly averages
+sp500_quarterly = varfun(@mean, sp500_raw, 'InputVariables', 'SP500', 'GroupingVariables', 'Quarter');
+eurostoxx_quarterly = varfun(@mean, eurostoxx_raw, 'InputVariables', 'EuroStoxx', 'GroupingVariables', 'Quarter');
+
+% Rename for clarity
+sp500_quarterly.Properties.VariableNames{'mean_SP500'} = 'SP500_Quarterly';
+eurostoxx_quarterly.Properties.VariableNames{'mean_EuroStoxx'} = 'EuroStoxx_Quarterly';
+
+% Merge on common quarters
+equity_merged = innerjoin(sp500_quarterly, eurostoxx_quarterly, 'Keys', 'Quarter');
+
+% Log transform
+equity_merged.Log_SP500 = log(equity_merged.SP500_Quarterly);
+equity_merged.Log_EuroStoxx = log(equity_merged.EuroStoxx_Quarterly);
+
+% Apply HP filter
+lambda = 1600;
+[cycle_sp500, ~] = hpfilter(equity_merged.Log_SP500, lambda);
+[cycle_eurostoxx, ~] = hpfilter(equity_merged.Log_EuroStoxx, lambda);
+
+% Store cycles
+equity_cycles = table(equity_merged.Quarter, cycle_sp500, cycle_eurostoxx, ...
+    'VariableNames', {'Quarter', 'Cycle_SP500', 'Cycle_EuroStoxx'});
+
+% Display preview
+disp('HP-Filtered Equity Index Cycles:');
+disp(equity_cycles(1:5,:));
+
+% Plot
+figure;
+plot(equity_cycles.Quarter, equity_cycles.Cycle_SP500, 'b', 'LineWidth', 1.5); hold on;
+plot(equity_cycles.Quarter, equity_cycles.Cycle_EuroStoxx, 'r', 'LineWidth', 1.5);
+xlabel('Year'); ylabel('Cycle Component');
+title('HP-Filtered Log Equity Indices');
+legend('S&P 500 (US)', 'EURO STOXX 50 (France)');
+grid on;
+
+%% 3. Perform our New Lead Lag Correlations
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%% ANNUAL DATA ANALYSIS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
