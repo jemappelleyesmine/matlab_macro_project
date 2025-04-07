@@ -1,6 +1,22 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+
+
 %%%%%%%%%%%%%%%%%%%%% MACROECONOMICS PROJECT %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -9,7 +25,13 @@
 cd '/Users/yesminehachana/Desktop/Classes/Dauphine/2nd Semester/Macroeconomics MATLAB Project/Repository'
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%% QUARTERLY DATA ANALYSIS %%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%% PRIMARY DATA ANALYSIS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%% QUARTERLY NON-DESEASONALIZED DATA %%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% 1. Load Quarterly GDP Datasets
@@ -293,7 +315,7 @@ grid on;
 % (1-2 quarters).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%% DESEASONALIZED QUARTERLY DATA ANALYSIS %%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%% QUARTERLY DESEASONALIZED DATA %%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %We used the moving average method to remove seasonal fluctuations 
@@ -655,7 +677,6 @@ disp('France Troughs:'); disp(troughs_FRA);
 disp('China Peaks:'); disp(peaks_CHN);
 disp('China Troughs:'); disp(troughs_CHN);
 
-
 %% 6. Compute Business Cycle Statistics from BBQ Method
 
 function [expansion_duration, recession_duration, mean_exp_growth, mean_rec_growth] = compute_durations(peaks, troughs, cycle)
@@ -778,6 +799,17 @@ legend('USA Cycle', 'France Cycle', ...
 grid on;
 hold off;
 
+% Additional Summary Bar Plot
+
+figure;
+bar(categorical(business_cycle_durations.Country), ...
+    [business_cycle_durations.Avg_Expansion_Duration, business_cycle_durations.Avg_Recession_Duration]);
+ylabel('Average Duration (Quarters)');
+title('Average Expansion and Recession Durations');
+legend('Expansion', 'Recession');
+grid on;
+
+
 %% 8. Plot Business Cycles for France, USA, and China (Full Period)
 
 figure;
@@ -807,11 +839,20 @@ legend('USA Cycle', 'France Cycle', 'China Cycle', ...
 grid on;
 hold off;
 
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%% SECONDARY ANALYSIS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%% SECONDARY DATA ANALYSIS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% For the US and France only, sources: FRED and ECB.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%% QUARTERLY DATA ANALYSIS WITH AGGREGATE VARIABLES %%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% For the US and France only.
+% Sources of aggregate variables: FRED and ECB.
+% Using our deseasonalized business cycles.
 
 %% 1. Cleaning our Interest Rate Aggregate Datasets
 
@@ -914,7 +955,270 @@ title('HP-Filtered Log Equity Indices');
 legend('S&P 500 (US)', 'EURO STOXX 50 (France)');
 grid on;
 
-%% 3. Perform our New Lead Lag Correlations
+%% 3. Importing our Other Aggregate Variables
+
+% CPI FRANCE
+
+cpi_france = readtable('CPI_France_FRED.xlsx');
+cpi_france.Quarter = datetime(cpi_france.Quarter);
+cpi_france = cpi_france(:, {'Quarter', 'ConsumerPriceIndexFrance'});
+
+% CPI US
+
+cpi_us = readtable('CPI_US_FRED.xlsx');
+cpi_us.observation_date = datetime(cpi_us.observation_date);  % Convert date column
+cpi_us = renamevars(cpi_us, 'observation_date', 'Quarter');   % Standardize column name
+cpi_us = cpi_us(:, {'Quarter', 'ConsumerPriceIndexUS'});      % Keep only relevant columns
+
+% Inventories FRANCE
+
+inventories_fr = readtable('Inventories_France_ECB.xlsx');
+inventories_fr.Quarter = datetime(inventories_fr.Quarter);
+inventories_fr = inventories_fr(:, {'Quarter', 'ChangesInInventoriesFrance'});
+
+% Inventories US
+
+inventories_us = readtable('Inventories_US_FRED.xlsx');
+inventories_us.Quarter = datetime(inventories_us.Quarter);
+inventories_us = inventories_us(:, {'Quarter', 'ChangesInInventoriesUS'});
+
+% Unemployment FRANCE
+
+unemp_fr = readtable('Unemployment_France_ECB.xlsx');
+unemp_fr.Quarter = datetime(unemp_fr.Quarter);
+unemp_fr = unemp_fr(:, {'Quarter', 'UnemploymentRateFrance'});
+
+% Unemployment US
+
+unemp_us = readtable('Unemployment_US_ECB.xlsx');
+unemp_us.Quarter = datetime(unemp_us.Quarter);
+unemp_us = unemp_us(:, {'Quarter', 'UnemploymentRateUS'});
+
+%% 4. Creating Two Master Correlation Tables
+
+% US aggregation
+us_macro_aggregates = innerjoin(equity_cycles(:, {'Quarter', 'Cycle_SP500'}), ...
+    interest_rates_quarterly(:, {'Quarter', 'FEDFUNDS_Quarterly'}), 'Keys', 'Quarter');
+us_macro_aggregates = innerjoin(us_macro_aggregates, inventories_us, 'Keys', 'Quarter');
+us_macro_aggregates = innerjoin(us_macro_aggregates, cpi_us, 'Keys', 'Quarter');
+us_macro_aggregates = innerjoin(us_macro_aggregates, unemp_us, 'Keys', 'Quarter');
+
+% Assign business cycle using accurate date match
+start_date_us = us_macro_aggregates.Quarter(1);
+full_quarters_us = US_France_GDP.Quarter;
+start_idx_us = find(full_quarters_us == start_date_us);
+us_macro_aggregates.cycle_USA_adj = cycle_USA_adj(start_idx_us : start_idx_us + height(us_macro_aggregates) - 1);
+
+
+% France aggregation
+fr_macro_aggregates = innerjoin(equity_cycles(:, {'Quarter', 'Cycle_EuroStoxx'}), ...
+    interest_rates_quarterly(:, {'Quarter', 'DepositFacilityRate'}), 'Keys', 'Quarter');
+fr_macro_aggregates = innerjoin(fr_macro_aggregates, inventories_fr, 'Keys', 'Quarter');
+fr_macro_aggregates = innerjoin(fr_macro_aggregates, cpi_france, 'Keys', 'Quarter');
+fr_macro_aggregates = innerjoin(fr_macro_aggregates, unemp_fr, 'Keys', 'Quarter');
+
+% Assign business cycle using accurate date match
+start_date_fr = fr_macro_aggregates.Quarter(1);
+full_quarters_fr = US_France_GDP.Quarter;
+start_idx_fr = find(full_quarters_fr == start_date_fr);
+fr_macro_aggregates.cycle_FRA_adj = cycle_FRA_adj(start_idx_fr : start_idx_fr + height(fr_macro_aggregates) - 1);
+
+%% 5. FRANCE: Perform our Lead Lag Correlations
+
+% Set max lag
+max_lag = 12;
+lags = (-max_lag:max_lag)';
+n_lags = length(lags);
+
+% Initialize result table
+var_names_fr = {'Cycle_EuroStoxx', 'DepositFacilityRate', 'ChangesInInventoriesFrance', ...
+                'ConsumerPriceIndexFrance', 'UnemploymentRateFrance'};
+
+lead_lag_corr_fr = table(lags, ...
+    'VariableNames', {'Lag'});
+
+% Loop through each variable
+for v = 1:length(var_names_fr)
+    macro_var = fr_macro_aggregates.(var_names_fr{v});
+    cycle = fr_macro_aggregates.cycle_FRA_adj;
+
+    corr_vector = NaN(n_lags,1); % Preallocate
+
+    for i = 1:n_lags
+        lag = lags(i);
+
+        if lag < 0
+            % Macro variable leads
+            corr_vector(i) = corr(macro_var(1:end+lag), cycle(-lag+1:end), 'rows', 'complete');
+        elseif lag > 0
+            % Macro variable lags
+            corr_vector(i) = corr(macro_var(lag+1:end), cycle(1:end-lag), 'rows', 'complete');
+        else
+            % No lag
+            corr_vector(i) = corr(macro_var, cycle, 'rows', 'complete');
+        end
+    end
+
+    lead_lag_corr_fr.(var_names_fr{v}) = corr_vector;
+end
+
+% Display result
+disp('Lead-Lag Correlations (France):');
+disp(lead_lag_corr_fr);
+
+% Plot for each macro variable
+for v = 1:length(var_names_fr)
+    figure;
+    plot(lags, lead_lag_corr_fr.(var_names_fr{v}), '-o', 'LineWidth', 1.5);
+    xlabel('Lag (quarters)');
+    ylabel('Correlation');
+    title(['France: Lead-Lag Correlation with ', strrep(var_names_fr{v}, '_', '\_')]);
+    grid on;
+end
+
+% lag < 0: macro variable leads the cycle
+%lag > 0: macro variable lags the cycle
+
+%% 6. USA: Perform our Lead Lag Correlations
+
+% Set max lag
+max_lag = 12;
+lags = (-max_lag:max_lag)';
+n_lags = length(lags);
+
+% Initialize result table
+var_names_us = {'Cycle_SP500', 'FEDFUNDS_Quarterly', 'ChangesInInventoriesUS', ...
+                'ConsumerPriceIndexUS', 'UnemploymentRateUS'};
+
+lead_lag_corr_us = table(lags, ...
+    'VariableNames', {'Lag'});
+
+% Loop through each variable
+for v = 1:length(var_names_us)
+    macro_var = us_macro_aggregates.(var_names_us{v});
+    cycle = us_macro_aggregates.cycle_USA_adj;
+
+    corr_vector = NaN(n_lags,1); % Preallocate
+
+    for i = 1:n_lags
+        lag = lags(i);
+
+        if lag < 0
+            % Macro variable leads
+            corr_vector(i) = corr(macro_var(1:end+lag), cycle(-lag+1:end), 'rows', 'complete');
+        elseif lag > 0
+            % Macro variable lags
+            corr_vector(i) = corr(macro_var(lag+1:end), cycle(1:end-lag), 'rows', 'complete');
+        else
+            % No lag
+            corr_vector(i) = corr(macro_var, cycle, 'rows', 'complete');
+        end
+    end
+
+    lead_lag_corr_us.(var_names_us{v}) = corr_vector;
+end
+
+% Display result
+disp('Lead-Lag Correlations (USA):');
+disp(lead_lag_corr_us);
+
+% Plot for each macro variable
+for v = 1:length(var_names_us)
+    figure;
+    plot(lags, lead_lag_corr_us.(var_names_us{v}), '-o', 'LineWidth', 1.5);
+    xlabel('Lag (quarters)');
+    ylabel('Correlation');
+    title(['USA: Lead-Lag Correlation with ', strrep(var_names_us{v}, '_', '\_')]);
+    grid on;
+end
+
+% lag < 0: macro variable leads the cycle
+%lag > 0: macro variable lags the cycle
+
+%% 7. Create a Comparison Table
+
+% Ensure same lags
+lags = lead_lag_corr_fr.Lag; 
+
+% Initialize a comparison table
+comparison_table = table(lags, ...
+    lead_lag_corr_fr.Cycle_EuroStoxx, lead_lag_corr_us.Cycle_SP500, ...
+    lead_lag_corr_fr.DepositFacilityRate, lead_lag_corr_us.FEDFUNDS_Quarterly, ...
+    lead_lag_corr_fr.ChangesInInventoriesFrance, lead_lag_corr_us.ChangesInInventoriesUS, ...
+    lead_lag_corr_fr.ConsumerPriceIndexFrance, lead_lag_corr_us.ConsumerPriceIndexUS, ...
+    lead_lag_corr_fr.UnemploymentRateFrance, lead_lag_corr_us.UnemploymentRateUS, ...
+    'VariableNames', {'Lag', ...
+                      'EuroStoxx_FR', 'SP500_US', ...
+                      'DepoRate_FR', 'FedFunds_US', ...
+                      'Inventories_FR', 'Inventories_US', ...
+                      'CPI_FR', 'CPI_US', ...
+                      'Unemp_FR', 'Unemp_US'});
+
+disp('France vs US Lead-Lag Correlation Comparison Table:');
+disp(comparison_table);
+
+%% 8. Plot Comparison Graphs for Each Variable
+
+% Define variable pairs and titles
+variables = {
+    'Cycle_EuroStoxx', 'Cycle_SP500', 'Equity Index';
+    'DepositFacilityRate', 'FEDFUNDS_Quarterly', 'Interest Rate';
+    'ChangesInInventoriesFrance', 'ChangesInInventoriesUS', 'Inventory Changes';
+    'ConsumerPriceIndexFrance', 'ConsumerPriceIndexUS', 'Consumer Price Index';
+    'UnemploymentRateFrance', 'UnemploymentRateUS', 'Unemployment Rate'
+};
+
+for i = 1:size(variables, 1)
+    figure;
+    plot(lags, lead_lag_corr_fr.(variables{i,1}), '-o', 'LineWidth', 1.5); hold on;
+    plot(lags, lead_lag_corr_us.(variables{i,2}), '-s', 'LineWidth', 1.5);
+    xlabel('Lag (quarters)');
+    ylabel('Correlation');
+    title(['Lead-Lag Correlation: ', variables{i,3}]);
+    legend('France', 'USA', 'Location', 'best');
+    grid on;
+end
+
+%% 9. Create a Graph to Compare French and US Growth
+
+% Compute quarterly GDP growth rates (%)
+growth_US = diff(log_gdp_adj_US) * 100;
+growth_FR = diff(log_gdp_adj_France) * 100;
+
+% Correct quarter range
+quarters = US_France_GDP.Quarter(end - length(growth_US) + 1:end);
+
+% Plot USA GDP growth
+figure;
+plot(quarters, growth_US, 'b-', 'LineWidth', 1.5);
+xlabel('Quarter');
+ylabel('GDP Growth Rate (%)');
+title('USA Quarterly GDP Growth Rate');
+grid on;
+
+% Plot France GDP growth
+figure;
+plot(quarters, growth_FR, 'r-', 'LineWidth', 1.5);
+xlabel('Quarter');
+ylabel('GDP Growth Rate (%)');
+title('France Quarterly GDP Growth Rate');
+grid on;
+
+% Plot both on same graph
+figure;
+plot(quarters, growth_US, 'b-', 'LineWidth', 1.5); hold on;
+plot(quarters, growth_FR, 'r--', 'LineWidth', 1.5);
+xlabel('Quarter');
+ylabel('GDP Growth Rate (%)');
+title('Quarterly GDP Growth Rate: USA vs France');
+legend('USA', 'France');
+grid on;
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% ANNEX %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%% ANNUAL DATA ANALYSIS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
